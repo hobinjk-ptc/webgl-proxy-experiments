@@ -77,8 +77,7 @@ async function main() {
     const deltaTime = now - then;
     then = now;
 
-    drawScene(gl, programInfo, buffers, deltaTime, -0.5);
-    drawScene(gl, programInfo, buffers, deltaTime, 0.5);
+    drawScene(gl, programInfo, buffers, deltaTime);
   }
 }
 
@@ -136,7 +135,7 @@ async function initBuffers(gl) {
 //
 // Draw the scene.
 //
-function drawScene(gl, programInfo, buffers, deltaTime, x) {
+function drawScene(gl, programInfo, buffers, deltaTime) {
   // gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
   // gl.clearDepth(1.0);                 // Clear everything
   // gl.enable(gl.DEPTH_TEST);           // Enable depth testing
@@ -174,12 +173,13 @@ function drawScene(gl, programInfo, buffers, deltaTime, x) {
   // Now move the drawing position a bit to where we want to
   // start drawing the square.
 
+  const x = 0.5;
   mat4.translate(modelViewMatrix,     // destination matrix
                  modelViewMatrix,     // matrix to translate
                  [x, 0.0, -6.0]);  // amount to translate
   mat4.rotate(modelViewMatrix,  // destination matrix
               modelViewMatrix,  // matrix to rotate
-              squareRotation,   // amount to rotate in radians
+              squareRotation * 2,   // amount to rotate in radians
               [0, 1, 0]);       // axis to rotate around
 
   // Tell WebGL how to pull out the positions from the position
