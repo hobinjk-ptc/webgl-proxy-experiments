@@ -179,7 +179,7 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
                  [x, 0.0, -6.0]);  // amount to translate
   mat4.rotate(modelViewMatrix,  // destination matrix
               modelViewMatrix,  // matrix to rotate
-              squareRotation * 2,   // amount to rotate in radians
+              squareRotation * 1.14,   // amount to rotate in radians
               [0, 1, 0]);       // axis to rotate around
 
   // Tell WebGL how to pull out the positions from the position

@@ -43,5 +43,9 @@ onmessage = function(event) {
 
   if (message.name === 'frame') {
     render(message.time);
+
+    postMessage({
+      isFrameEnd: true,
+    });
   }
 };

@@ -2,36 +2,72 @@ class WorkerGLProxy {
   constructor(worker, gl) {
     this.worker = worker;
     this.gl = gl;
-    this.lastId = -1;
 
     this.uncloneables = [];
 
-    this.worker.onmessage = (e) => {
-      const message = e.data;
-      for (let i = 0; i < message.args.length; i++) {
-        let arg = message.args[i];
-        if (arg.fakeClone) {
-          message.args[i] = this.uncloneables[arg.index];
-        }
-      }
-      let res = gl[message.name].apply(gl, message.args);
-      if (res instanceof WebGLShader ||
-          res instanceof WebGLProgram ||
-          res instanceof WebGLBuffer ||
-          res instanceof WebGLUniformLocation) {
-        this.uncloneables.push(res);
-        res = {fakeClone: true, index: this.uncloneables.length - 1};
-      }
-      if (message.id < this.lastId) {
-        console.error('IDS ONLY GO UP', message);
-      }
-      this.lastId = message.id;
+    this.commandBuffer = [];
+    this.buffering = false;
 
-      this.worker.postMessage({
-        id: message.id,
-        result: res,
-      });
-    };
+    this.worker.onmessage = this.onMessage.bind(this);
+
+    this.frameEndListener = null;
+  }
+
+  onMessage(e) {
+    const message = e.data;
+    if (this.frameEndListener && message.isFrameEnd) {
+      this.frameEndListener();
+      return;
+    }
+    if (this.buffering) {
+      this.commandBuffer.push(message);
+      return;
+    }
+
+    const res = this.executeCommand(message);
+
+    this.worker.postMessage({
+      id: message.id,
+      result: res,
+    });
+  }
+
+  executeCommand(message) {
+    for (let i = 0; i < message.args.length; i++) {
+      let arg = message.args[i];
+      if (arg.fakeClone) {
+        message.args[i] = this.uncloneables[arg.index];
+      }
+    }
+
+    if (!this.gl[message.name]) {
+      return;
+    }
+    let res = this.gl[message.name].apply(this.gl, message.args);
+    if (res instanceof WebGLShader ||
+        res instanceof WebGLProgram ||
+        res instanceof WebGLBuffer ||
+        res instanceof WebGLUniformLocation) {
+      this.uncloneables.push(res);
+      res = {fakeClone: true, index: this.uncloneables.length - 1};
+    }
+    return res;
+  }
+
+  executeFrameCommands() {
+    this.buffering = false;
+    for (let message of this.commandBuffer) {
+      this.executeCommand(message);
+    }
+    this.commandBuffer = [];
+  }
+
+  getFrameCommands() {
+    this.buffering = true;
+    this.worker.postMessage({name: 'frame', time: Date.now()});
+    return new Promise((res) => {
+      this.frameEndListener = res;
+    });
   }
 }
 
@@ -71,7 +107,13 @@ function main() {
     setTimeout(renderFrame, 200);
   }, 200);
 
-  function renderFrame() {
+  async function renderFrame() {
+    await Promise.all([
+      proxy.getFrameCommands(), // postMessage({name: 'frame', time: Date.now()});
+      proxy2.getFrameCommands(),
+    ]);
+
+
     gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
     gl.clearDepth(1.0);                 // Clear everything
     gl.enable(gl.DEPTH_TEST);           // Enable depth testing
@@ -80,12 +122,10 @@ function main() {
     // Clear the canvas before we start drawing on it.
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    proxy.executeFrameCommands();
+    proxy2.executeFrameCommands();
 
-    worker.postMessage({name: 'frame', time: Date.now()});
-    setTimeout(function() {
-      worker2.postMessage({name: 'frame', time: Date.now()});
-      setTimeout(renderFrame, 1000);
-    }, 200);
+    requestAnimationFrame(renderFrame);
   }
 
 }
