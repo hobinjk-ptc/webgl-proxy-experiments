@@ -2,12 +2,12 @@ class WorkerGLProxy {
   constructor(worker, gl) {
     this.worker = worker;
     this.gl = gl;
+    this.lastId = -1;
 
     this.uncloneables = [];
 
     this.worker.onmessage = (e) => {
       const message = e.data;
-      console.log(message.name);
       for (let i = 0; i < message.args.length; i++) {
         let arg = message.args[i];
         if (arg.fakeClone) {
@@ -22,6 +22,11 @@ class WorkerGLProxy {
         this.uncloneables.push(res);
         res = {fakeClone: true, index: this.uncloneables.length - 1};
       }
+      if (message.id < this.lastId) {
+        console.error('IDS ONLY GO UP', message);
+      }
+      this.lastId = message.id;
+
       this.worker.postMessage({
         id: message.id,
         result: res,
@@ -78,9 +83,9 @@ function main() {
 
     worker.postMessage({name: 'frame', time: Date.now()});
     setTimeout(function() {
-      // worker2.postMessage({name: 'frame', time: Date.now()});
-      setTimeout(renderFrame, 10);
-    }, 30);
+      worker2.postMessage({name: 'frame', time: Date.now()});
+      setTimeout(renderFrame, 1000);
+    }, 200);
   }
 
 }

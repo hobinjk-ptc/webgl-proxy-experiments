@@ -76,9 +76,7 @@ async function main() {
     now *= 0.001;  // convert to seconds
     const deltaTime = now - then;
     then = now;
-
     drawScene(gl, programInfo, buffers, deltaTime, -0.5);
-    drawScene(gl, programInfo, buffers, deltaTime, 0.5);
   }
 }
 
