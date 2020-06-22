@@ -3,17 +3,19 @@ let id = 0;
 
 const pending = {};
 let render;
+let workerId;
 
 function makeStub(functionName) {
   return function() {
     const invokeId = id;
     id += 1;
 
-    postMessage({
+    window.parent.postMessage({
+      workerId,
       id: invokeId,
       name: functionName,
       args: Array.from(arguments),
-    });
+    }, '*');
 
     return new Promise(res => {
       pending[invokeId] = res;
@@ -21,7 +23,7 @@ function makeStub(functionName) {
   };
 }
 
-onmessage = function(event) {
+window.addEventListener('message', function(event) {
   const message = event.data;
   if (message.name === 'bootstrap') {
     for (const fnName of message.functions) {
@@ -44,8 +46,9 @@ onmessage = function(event) {
   if (message.name === 'frame') {
     render(message.time);
 
-    postMessage({
+    window.parent.postMessage({
+      workerId,
       isFrameEnd: true,
-    });
+    }, '*');
   }
-};
+});

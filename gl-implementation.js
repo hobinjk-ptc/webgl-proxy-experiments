@@ -1,20 +1,26 @@
 class WorkerGLProxy {
-  constructor(worker, gl) {
+  constructor(worker, gl, workerId) {
     this.worker = worker;
     this.gl = gl;
+    this.workerId = workerId;
 
     this.uncloneables = [];
 
     this.commandBuffer = [];
     this.buffering = false;
 
-    this.worker.onmessage = this.onMessage.bind(this);
+    this.onMessage = this.onMessage.bind(this);
+    window.addEventListener('message', this.onMessage);
 
     this.frameEndListener = null;
   }
 
   onMessage(e) {
     const message = e.data;
+    if (message.workerId !== this.workerId) {
+      return;
+    }
+
     if (this.frameEndListener && message.isFrameEnd) {
       this.frameEndListener();
       return;
@@ -29,7 +35,7 @@ class WorkerGLProxy {
     this.worker.postMessage({
       id: message.id,
       result: res,
-    });
+    }, '*');
   }
 
   executeCommand(message) {
@@ -64,7 +70,7 @@ class WorkerGLProxy {
 
   getFrameCommands() {
     this.buffering = true;
-    this.worker.postMessage({name: 'frame', time: Date.now()});
+    this.worker.postMessage({name: 'frame', time: Date.now()}, '*');
     return new Promise((res) => {
       this.frameEndListener = res;
     });
@@ -74,8 +80,8 @@ class WorkerGLProxy {
 function main() {
   const canvas = document.querySelector('#glcanvas');
   const gl = canvas.getContext('webgl');
-  const worker = new Worker('basic-demo.js');
-  const worker2 = new Worker('basic-demo-2.js');
+  const worker = document.getElementById('worker1').contentWindow;
+  const worker2 = document.getElementById('worker2').contentWindow;
 
   // If we don't have a GL context, give up now
 
@@ -98,18 +104,18 @@ function main() {
     }
   }
 
-  let proxy = new WorkerGLProxy(worker, gl);
-  let proxy2 = new WorkerGLProxy(worker2, gl);
+  let proxy = new WorkerGLProxy(worker, gl, 1);
+  let proxy2 = new WorkerGLProxy(worker2, gl, 2);
 
-  worker.postMessage({name: 'bootstrap', functions, constants});
   setTimeout(() => {
-    worker2.postMessage({name: 'bootstrap', functions, constants});
+    worker.postMessage({name: 'bootstrap', functions, constants}, '*');
+    worker2.postMessage({name: 'bootstrap', functions, constants}, '*');
     setTimeout(renderFrame, 200);
   }, 200);
 
   async function renderFrame() {
     await Promise.all([
-      proxy.getFrameCommands(), // postMessage({name: 'frame', time: Date.now()});
+      proxy.getFrameCommands(),
       proxy2.getFrameCommands(),
     ]);
 

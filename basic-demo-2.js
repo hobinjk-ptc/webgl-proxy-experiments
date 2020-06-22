@@ -1,18 +1,11 @@
 // Adapted from mdn/webgl-examples
 
-importScripts('./gl-matrix.js');
-importScripts('./gl-worker.js');
-
 var squareRotation = 0.0;
-
-const requestAnimationFrame = function(fn) {
-  setTimeout(function() {
-    fn(Date.now());
-  }, 33);
-};
 
 const width = 640;
 const height = 480;
+
+workerId = 2;
 
 async function main() {
   // If we don't have a GL context, give up now
