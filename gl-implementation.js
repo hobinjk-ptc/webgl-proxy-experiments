@@ -4,7 +4,7 @@ class WorkerGLProxy {
     this.gl = gl;
     this.workerId = workerId;
 
-    this.uncloneables = [];
+    this.uncloneables = {};
 
     this.commandBuffer = [];
     this.buffering = false;
@@ -20,6 +20,7 @@ class WorkerGLProxy {
     if (message.workerId !== this.workerId) {
       return;
     }
+
 
     if (this.frameEndListener && message.isFrameEnd) {
       this.frameEndListener();
@@ -49,13 +50,23 @@ class WorkerGLProxy {
     if (!this.gl[message.name]) {
       return;
     }
+
+    const blacklist = {
+      clear: true,
+    };
+
+    if (blacklist[message.name]) {
+      return;
+    }
+
+    if (message.name === 'useProgram') {
+      this.lastUseProgram = message;
+    }
+
     let res = this.gl[message.name].apply(this.gl, message.args);
-    if (res instanceof WebGLShader ||
-        res instanceof WebGLProgram ||
-        res instanceof WebGLBuffer ||
-        res instanceof WebGLUniformLocation) {
-      this.uncloneables.push(res);
-      res = {fakeClone: true, index: this.uncloneables.length - 1};
+    if (typeof res === 'object') {
+      this.uncloneables[message.id] = res;
+      res = {fakeClone: true, index: message.id};
     }
     return res;
   }
@@ -70,6 +81,9 @@ class WorkerGLProxy {
 
   getFrameCommands() {
     this.buffering = true;
+    if (this.lastUseProgram) {
+      this.commandBuffer.push(this.lastUseProgram);
+    }
     this.worker.postMessage({name: 'frame', time: Date.now()}, '*');
     return new Promise((res) => {
       this.frameEndListener = res;
@@ -110,15 +124,15 @@ function main() {
   setTimeout(() => {
     worker.postMessage({name: 'bootstrap', functions, constants}, '*');
     worker2.postMessage({name: 'bootstrap', functions, constants}, '*');
-    setTimeout(renderFrame, 200);
+    setTimeout(renderFrame, 500);
   }, 200);
 
   async function renderFrame() {
+    let start = performance.now();
     await Promise.all([
       proxy.getFrameCommands(),
       proxy2.getFrameCommands(),
     ]);
-
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
     gl.clearDepth(1.0);                 // Clear everything
@@ -131,6 +145,8 @@ function main() {
     proxy.executeFrameCommands();
     proxy2.executeFrameCommands();
 
+    let end = performance.now();
+    // console.log(end - start);
     requestAnimationFrame(renderFrame);
   }
 
