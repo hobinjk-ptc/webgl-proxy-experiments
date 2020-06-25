@@ -2,11 +2,23 @@ const gl = {};
 let id = 0;
 
 const pending = {};
+
+// Render function specified by worker script
 let render;
+
+// Unique worker id
 let workerId;
 
+// Local hidden gl context used to generate placeholder objects for gl calls
+// that require valid objects
 let realGl;
 
+/**
+ * Makes a stub for a given function which sends a message to the gl
+ * implementation in the parent.
+ * @param {string} functionName
+ * @return {any} a placeholder object from the local hidden gl context (realGl).
+ */
 function makeStub(functionName) {
   return function() {
     const invokeId = id;

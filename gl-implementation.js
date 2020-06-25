@@ -1,4 +1,12 @@
+/**
+ * Mediator between the worker iframe and the gl implementation
+ */
 class WorkerGLProxy {
+  /**
+   * @param {Element} worker - worker iframe
+   * @param {WebGLContext} gl
+   * @param {number|string} workerId - unique identifier of worker
+   */
   constructor(worker, gl, workerId) {
     this.worker = worker;
     this.gl = gl;
@@ -21,11 +29,11 @@ class WorkerGLProxy {
       return;
     }
 
-
     if (this.frameEndListener && message.isFrameEnd) {
       this.frameEndListener();
       return;
     }
+
     if (this.buffering) {
       this.commandBuffer.push(message);
       return;
@@ -129,6 +137,8 @@ function main() {
 
   async function renderFrame() {
     let start = performance.now();
+
+    // Get all the commands from the worker iframes
     await Promise.all([
       proxy.getFrameCommands(),
       proxy2.getFrameCommands(),
@@ -140,8 +150,9 @@ function main() {
     gl.depthFunc(gl.LEQUAL);            // Near things obscure far things
 
     // Clear the canvas before we start drawing on it.
-
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    // Execute all pending commands for this frame
     proxy.executeFrameCommands();
     proxy2.executeFrameCommands();
 
