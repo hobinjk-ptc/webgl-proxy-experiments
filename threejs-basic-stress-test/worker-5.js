@@ -52,7 +52,9 @@ async function main() {
     if (done) {
       realGl = null;
       realRenderer = null;
-      // delete and clean up realGl
+      for (let proxy of proxies) {
+        delete proxy.__uncloneableObj;
+      }
     }
     done = true;
   }

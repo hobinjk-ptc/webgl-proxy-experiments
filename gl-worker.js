@@ -1,5 +1,6 @@
-const gl = {};
+let gl = {};
 let id = 0;
+let proxies = [];
 
 const pending = {};
 
@@ -42,9 +43,35 @@ function makeStub(functionName) {
     }, '*');
 
     if (realGl) {
-      const res = realGl[functionName].apply(realGl, arguments);
+      const unclonedArgs = Array.from(arguments).map(a => {
+        if (a.__uncloneableId && !a.__uncloneableObj) {
+          console.error('invariant ruined');
+        }
+
+        if (a.__uncloneableObj) {
+          return a.__uncloneableObj;
+        }
+        return a;
+      });
+
+      const res = realGl[functionName].apply(realGl, unclonedArgs);
+
       if (typeof res === 'object') {
-        res.__uncloneableId = invokeId;
+        let proxy = new Proxy({
+          __uncloneableId: invokeId,
+          __uncloneableObj: res,
+        }, {
+          get: function(obj, prop) {
+            if (prop === 'hasOwnProperty' || prop.startsWith('__')) {
+              return obj[prop];
+            } else {
+              return obj.__uncloneableObj[prop];
+            }
+          },
+        });
+
+        proxies.push(proxy);
+        return proxy;
       }
       return res;
     }
@@ -61,6 +88,16 @@ window.addEventListener('message', function(event) {
     for (const fnName of message.functions) {
       gl[fnName] = makeStub(fnName);
     }
+
+    gl = new Proxy(gl, {
+      get: function(obj, prop) {
+        if (typeof obj[prop] === 'function') {
+          // TODO dynamically stub
+        }
+        return obj[prop];
+      },
+    });
+
 
     for (const constName in message.constants) {
       gl[constName] = message.constants[constName];
