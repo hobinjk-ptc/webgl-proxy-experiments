@@ -71,10 +71,6 @@ class WorkerGLProxy {
       this.lastUseProgram = message;
     }
 
-    if (message.name === 'getShaderPrecisionFormat') {
-      console.log(message);
-    }
-
     let res = this.gl[message.name].apply(this.gl, message.args);
     if (typeof res === 'object') {
       this.uncloneables[message.id] = res;
@@ -160,13 +156,23 @@ async function main() {
     setTimeout(renderFrame, 500);
   }, 200);
 
+  window.timings = {
+    getCommands: [],
+    getAllCommands: [],
+    executeCommands: [],
+    frames: [],
+  };
+
   async function renderFrame() {
     let start = performance.now();
 
     // Get all the commands from the worker iframes
-    await Promise.all(proxies.map(proxy => proxy.getFrameCommands()));
+    await Promise.all(proxies.map(async (proxy) => {
+       await proxy.getFrameCommands();
+       timings.getCommands.push(performance.now() - start);
+    }));
 
-    console.log('got commands', performance.now() - start);
+    timings.getAllCommands.push(performance.now() - start);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
     gl.clearDepth(1.0);                 // Clear everything
@@ -176,7 +182,7 @@ async function main() {
     // Clear the canvas before we start drawing on it.
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    start = performance.now();
+    let executeStart = performance.now();
 
     // Execute all pending commands for this frame
     for (let proxy of proxies) {
@@ -184,7 +190,8 @@ async function main() {
     }
 
     let end = performance.now();
-    console.log('executed commands', end - start);
+    timings.executeCommands.push(end - executeStart);
+    timings.frames.push(end - start);
     requestAnimationFrame(renderFrame);
   }
 
