@@ -99,11 +99,27 @@ class WorkerGLProxy {
   }
 }
 
-function main() {
+let workerCount = 2;
+let workers = [];
+
+function sleep(ms) {
+  return new Promise((res) => {
+    setTimeout(res, ms);
+  });
+}
+
+async function main() {
   const canvas = document.querySelector('#glcanvas');
   const gl = canvas.getContext('webgl');
-  const worker = document.getElementById('worker1').contentWindow;
-  const worker2 = document.getElementById('worker2').contentWindow;
+  console.log(gl.getParameter(7938));
+
+  for (let i = 1; i <= workerCount; i++) {
+    let frame = document.createElement('iframe');
+    frame.id = `worker${i}`;
+    frame.src = `worker-${i}.html`;
+    document.body.appendChild(frame);
+    workers.push(frame.contentWindow);
+  }
 
   // If we don't have a GL context, give up now
 
@@ -111,6 +127,8 @@ function main() {
     alert('Unable to initialize WebGL. Your browser or machine may not support it.');
     return;
   }
+
+  await sleep(1000);
 
   const functions = [];
   const constants = {};
@@ -126,23 +144,35 @@ function main() {
     }
   }
 
-  let proxy = new WorkerGLProxy(worker, gl, 1);
-  let proxy2 = new WorkerGLProxy(worker2, gl, 2);
+  let proxies = [];
+  for (let i = 0; i < workers.length; i++) {
+    proxies.push(new WorkerGLProxy(workers[i], gl, i + 1));
+  }
 
   setTimeout(() => {
-    worker.postMessage({name: 'bootstrap', functions, constants}, '*');
-    worker2.postMessage({name: 'bootstrap', functions, constants}, '*');
+    for (let worker of workers) {
+      worker.postMessage({name: 'bootstrap', functions, constants}, '*');
+    }
     setTimeout(renderFrame, 500);
   }, 200);
+
+  window.timings = {
+    getCommands: [],
+    getAllCommands: [],
+    executeCommands: [],
+    frames: [],
+  };
 
   async function renderFrame() {
     let start = performance.now();
 
     // Get all the commands from the worker iframes
-    await Promise.all([
-      proxy.getFrameCommands(),
-      proxy2.getFrameCommands(),
-    ]);
+    await Promise.all(proxies.map(async (proxy) => {
+       await proxy.getFrameCommands();
+       timings.getCommands.push(performance.now() - start);
+    }));
+
+    timings.getAllCommands.push(performance.now() - start);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
     gl.clearDepth(1.0);                 // Clear everything
@@ -152,12 +182,16 @@ function main() {
     // Clear the canvas before we start drawing on it.
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+    let executeStart = performance.now();
+
     // Execute all pending commands for this frame
-    proxy.executeFrameCommands();
-    proxy2.executeFrameCommands();
+    for (let proxy of proxies) {
+      proxy.executeFrameCommands();
+    }
 
     let end = performance.now();
-    // console.log(end - start);
+    timings.executeCommands.push(end - executeStart);
+    timings.frames.push(end - start);
     requestAnimationFrame(renderFrame);
   }
 
