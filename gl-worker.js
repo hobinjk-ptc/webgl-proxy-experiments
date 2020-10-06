@@ -14,6 +14,19 @@ let workerId;
 // that require valid objects
 let realGl;
 
+const cacheGetParameter = {
+  3379: 8192,
+  7938: 'WebGL 1.0',
+  34076: 8192,
+  34921: 16,
+  34930: 16,
+  35660: 16,
+  35661: 80,
+  36347: 1024,
+  36348: 32,
+  36349: 1024,
+};
+
 /**
  * Makes a stub for a given function which sends a message to the gl
  * implementation in the parent.
@@ -74,6 +87,10 @@ function makeStub(functionName) {
         return proxy;
       }
       return res;
+    }
+
+    if (functionName === 'getParameter') {
+      return cacheGetParameter[arguments[0]];
     }
 
     return new Promise(res => {
