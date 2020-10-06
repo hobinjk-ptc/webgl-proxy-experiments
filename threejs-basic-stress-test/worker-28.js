@@ -35,9 +35,11 @@ async function main() {
 
   const renderer = new THREE.WebGLRenderer({context: gl});
   renderer.setSize(width, height);
+  renderer.debug.checkShaderErrors = false;
 
   let then = 0;
   let done = false;
+
   // Draw the scene repeatedly
   render = function(now) {
     now *= 0.001;  // convert to seconds
@@ -49,12 +51,18 @@ async function main() {
 
     renderer.render(scene, camera);
 
-    if (done) {
-      realGl = null;
-      realRenderer = null;
+    if (done && realGl) {
       for (let proxy of proxies) {
+        proxy.__uncloneableObj = null;
         delete proxy.__uncloneableObj;
       }
+      proxies = [];
+      realRenderer.dispose();
+      realRenderer.forceContextLoss();
+      realRenderer.context = null;
+      realRenderer.domElement = null;
+      realRenderer = null;
+      realGl = null;
     }
     done = true;
   }

@@ -21,13 +21,20 @@ async function main() {
   const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
   camera.position.z = 35;
 
-  // const geometry = new THREE.BoxGeometry();
-  const geometry = new THREE.TorusKnotBufferGeometry( 10, 3, 100, 16 );
-  // const material = new THREE.MeshBasicMaterial({color: 0x00ff00});
-  const material = new THREE.MeshLambertMaterial({color: 0xffa400});
-  let cube = new THREE.Mesh(geometry, material);
-  cube.position.x = -15 + workerId;
-  scene.add(cube);
+  let cubes = [];
+
+  for (let i = 0; i < 2; i++) {
+    // const geometry = new THREE.BoxGeometry();
+    const geometry = new THREE.TorusKnotGeometry(8 + i / 2, 3, 90 + i, 16);
+    // const material = new THREE.MeshBasicMaterial({color: 0x00ff00});
+    const material = new THREE.MeshLambertMaterial({color: 0xffa400});
+    let cube = new THREE.Mesh(geometry, material);
+    cube.position.x = -15 + workerId;
+    cube.position.y = -2.5 + i / 2;
+    cube.position.z = -2.5 + i / 2;
+    scene.add(cube);
+    cubes.push(cube);
+  }
 
   let realRenderer = new THREE.WebGLRenderer();
   realRenderer.setSize(width, height);
@@ -35,26 +42,36 @@ async function main() {
 
   const renderer = new THREE.WebGLRenderer({context: gl});
   renderer.setSize(width, height);
+  renderer.debug.checkShaderErrors = false;
 
   let then = 0;
   let done = false;
+
   // Draw the scene repeatedly
   render = function(now) {
     now *= 0.001;  // convert to seconds
     const deltaTime = now - then;
     then = now;
 
-    cube.rotation.x -= (0.2 + workerId / 60) * deltaTime;
-    cube.rotation.y -= 0.2 * deltaTime;
+    for (let cube of cubes) {
+      cube.rotation.x -= (0.2 + workerId / 60) * deltaTime;
+      cube.rotation.y -= 0.2 * deltaTime;
+    }
 
     renderer.render(scene, camera);
 
-    if (done) {
-      realGl = null;
-      realRenderer = null;
+    if (done && realGl) {
       for (let proxy of proxies) {
+        proxy.__uncloneableObj = null;
         delete proxy.__uncloneableObj;
       }
+      proxies = [];
+      realRenderer.dispose();
+      realRenderer.forceContextLoss();
+      realRenderer.context = null;
+      realRenderer.domElement = null;
+      realRenderer = null;
+      realGl = null;
     }
     done = true;
   }
