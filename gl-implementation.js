@@ -14,7 +14,10 @@ class WorkerGLProxy {
 
     this.uncloneables = {};
 
+    this.cache = {};
+
     this.commandBuffer = [];
+    this.lastTargettedBinds = {};
     this.buffering = false;
 
     this.onMessage = this.onMessage.bind(this);
@@ -71,7 +74,27 @@ class WorkerGLProxy {
       this.lastUseProgram = message;
     }
 
+    const targettedBinds = {
+      bindBuffer: true,
+      bindFramebuffer: true,
+      bindRenderbuffer: true,
+      bindTexture: true,
+    };
+
+    if (targettedBinds[message.name]) {
+      this.lastTargettedBinds[message.name + '-' + message.args[0]] = message;
+    }
+
     let res = this.gl[message.name].apply(this.gl, message.args);
+    if (res && typeof res !== 'object') {
+      if (!this.cache[message.name]) {
+        this.cache[message.name] = [];
+      }
+      this.cache[message.name].push({
+        args: message.args,
+        res: res,
+      });
+    }
     if (typeof res === 'object') {
       this.uncloneables[message.id] = res;
       res = {fakeClone: true, index: message.id};
@@ -87,10 +110,20 @@ class WorkerGLProxy {
     this.commandBuffer = [];
   }
 
+  dropFrameCommands() {
+    this.buffering = false;
+    this.commandBuffer = [];
+  }
+
   getFrameCommands() {
     this.buffering = true;
     if (this.lastUseProgram) {
       this.commandBuffer.push(this.lastUseProgram);
+    }
+    if (this.lastTargettedBinds) {
+      for (let command of Object.values(this.lastTargettedBinds)) {
+        this.commandBuffer.push(command);
+      }
     }
     this.worker.postMessage({name: 'frame', time: Date.now()}, '*');
     return new Promise((res) => {
@@ -99,7 +132,7 @@ class WorkerGLProxy {
   }
 }
 
-let workerCount = 2;
+let workerCount = 1;
 let workers = [];
 
 function sleep(ms) {
@@ -108,18 +141,42 @@ function sleep(ms) {
   });
 }
 
+async function addWorker(gl, functions, constants, i) {
+  let frame = document.createElement('iframe');
+  frame.id = `worker${i}`;
+  frame.src = `worker-${i}.html`;
+  document.body.appendChild(frame);
+  let worker = frame.contentWindow;
+
+  await sleep(500);
+
+  let proxy = new WorkerGLProxy(worker, gl, i);
+
+  await sleep(200);
+
+  worker.postMessage({name: 'bootstrap', functions, constants}, '*');
+  // Render 1 frame so it dies
+
+  await sleep(200);
+
+  await proxy.getFrameCommands();
+  proxy.executeFrameCommands();
+
+  await proxy.getFrameCommands();
+  proxy.executeFrameCommands();
+
+  await proxy.getFrameCommands();
+  proxy.executeFrameCommands();
+
+  return {
+    worker,
+    proxy,
+  };
+}
+
 async function main() {
   const canvas = document.querySelector('#glcanvas');
   const gl = canvas.getContext('webgl');
-  console.log(gl.getParameter(7938));
-
-  for (let i = 1; i <= workerCount; i++) {
-    let frame = document.createElement('iframe');
-    frame.id = `worker${i}`;
-    frame.src = `worker-${i}.html`;
-    document.body.appendChild(frame);
-    workers.push(frame.contentWindow);
-  }
 
   // If we don't have a GL context, give up now
 
@@ -127,8 +184,6 @@ async function main() {
     alert('Unable to initialize WebGL. Your browser or machine may not support it.');
     return;
   }
-
-  await sleep(1000);
 
   const functions = [];
   const constants = {};
@@ -144,17 +199,13 @@ async function main() {
     }
   }
 
-  let proxies = [];
-  for (let i = 0; i < workers.length; i++) {
-    proxies.push(new WorkerGLProxy(workers[i], gl, i + 1));
-  }
+  window.proxies = [];
 
-  setTimeout(() => {
-    for (let worker of workers) {
-      worker.postMessage({name: 'bootstrap', functions, constants}, '*');
-    }
-    setTimeout(renderFrame, 500);
-  }, 200);
+  for (let i = 1; i <= workerCount; i++) {
+    console.log('addWorker', i);
+    let {worker, proxy} = await addWorker(gl, functions, constants, i);
+    proxies.push(proxy);
+  }
 
   window.timings = {
     getCommands: [],
@@ -195,6 +246,7 @@ async function main() {
     requestAnimationFrame(renderFrame);
   }
 
+  renderFrame();
 }
 
 main();
