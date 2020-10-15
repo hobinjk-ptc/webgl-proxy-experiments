@@ -17,6 +17,7 @@ class WorkerGLProxy {
     this.cache = {};
 
     this.commandBuffer = [];
+    this.lastTargettedBinds = {};
     this.buffering = false;
 
     this.onMessage = this.onMessage.bind(this);
@@ -73,6 +74,17 @@ class WorkerGLProxy {
       this.lastUseProgram = message;
     }
 
+    const targettedBinds = {
+      bindBuffer: true,
+      bindFramebuffer: true,
+      bindRenderbuffer: true,
+      bindTexture: true,
+    };
+
+    if (targettedBinds[message.name]) {
+      this.lastTargettedBinds[message.name + '-' + message.args[0]] = message;
+    }
+
     let res = this.gl[message.name].apply(this.gl, message.args);
     if (res && typeof res !== 'object') {
       if (!this.cache[message.name]) {
@@ -91,7 +103,6 @@ class WorkerGLProxy {
   }
 
   executeFrameCommands() {
-    console.log('--- executeFrameCommands ---');
     this.buffering = false;
     for (let message of this.commandBuffer) {
       this.executeCommand(message);
@@ -108,6 +119,11 @@ class WorkerGLProxy {
     this.buffering = true;
     if (this.lastUseProgram) {
       this.commandBuffer.push(this.lastUseProgram);
+    }
+    if (this.lastTargettedBinds) {
+      for (let command of Object.values(this.lastTargettedBinds)) {
+        this.commandBuffer.push(command);
+      }
     }
     this.worker.postMessage({name: 'frame', time: Date.now()}, '*');
     return new Promise((res) => {
