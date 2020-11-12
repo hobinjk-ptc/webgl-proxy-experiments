@@ -44,13 +44,25 @@ class WorkerGLProxy {
 
     const res = this.executeCommand(message);
 
-    this.worker.postMessage({
-      id: message.id,
-      result: res,
-    }, '*');
+    if (message.wantsResponse) {
+      this.worker.postMessage({
+        id: message.id,
+        result: res,
+      }, '*');
+    }
   }
 
   executeCommand(message) {
+    if (message.messages) {
+      for (let bufferedMessage of message.messages) {
+        this.executeOneCommand(bufferedMessage);
+      }
+    } else {
+      this.executeOneCommand(message);
+    }
+  }
+
+  executeOneCommand(message) {
     for (let i = 0; i < message.args.length; i++) {
       let arg = message.args[i];
       if (arg && arg.fakeClone) {
