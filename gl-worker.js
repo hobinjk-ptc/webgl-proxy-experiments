@@ -131,6 +131,7 @@ function makeStub(functionName) {
 window.addEventListener('message', function(event) {
   const message = event.data;
   if (message.name === 'bootstrap') {
+    workerId = message.workerId;
     for (const fnName of message.functions) {
       gl[fnName] = makeStub(fnName);
     }
