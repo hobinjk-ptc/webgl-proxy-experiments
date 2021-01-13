@@ -144,8 +144,10 @@ class WorkerGLProxy {
   }
 }
 
-let workerCount = 1;
 let workers = [];
+let workersPerBatch = 1;
+let activeWorkers = 0;
+let maxWorkers = 1;
 
 function sleep(ms) {
   return new Promise((res) => {
@@ -156,7 +158,7 @@ function sleep(ms) {
 async function addWorker(gl, functions, constants, i) {
   let frame = document.createElement('iframe');
   frame.id = `worker${i}`;
-  frame.src = `worker-${i}.html`;
+  frame.src = `worker.html`;
   document.body.appendChild(frame);
   let worker = frame.contentWindow;
 
@@ -166,7 +168,7 @@ async function addWorker(gl, functions, constants, i) {
 
   await sleep(200);
 
-  worker.postMessage({name: 'bootstrap', functions, constants}, '*');
+  worker.postMessage({name: 'bootstrap', functions, constants, workerId: i}, '*');
   // Render 1 frame so it dies
 
   await sleep(200);
@@ -189,6 +191,7 @@ async function addWorker(gl, functions, constants, i) {
 async function main() {
   const canvas = document.querySelector('#glcanvas');
   const gl = canvas.getContext('webgl');
+  const status = document.querySelector('#status');
 
   // If we don't have a GL context, give up now
 
@@ -212,12 +215,20 @@ async function main() {
   }
 
   window.proxies = [];
+  
+  const workerPromises = [];
 
-  for (let i = 1; i <= workerCount; i++) {
+  for (let i = 1; i <= workersPerBatch; i++) {
     console.log('addWorker', i);
-    let {worker, proxy} = await addWorker(gl, functions, constants, i);
-    proxies.push(proxy);
+    workerPromises.push(addWorker(gl, functions, constants, i).then(res => {
+      proxies.push(res.proxy);
+      activeWorkers+=1;
+    }));
+    // let {worker, proxy} = await addWorker(gl, functions, constants, i);
+    // proxies.push(proxy);
   }
+  
+  await Promise.all(workerPromises);
 
   window.timings = {
     getCommands: [],
@@ -225,9 +236,36 @@ async function main() {
     executeCommands: [],
     frames: [],
   };
+  
+  let lastBatchTime = performance.now();
+  let batchesCompleted = false;
+  let batchesCompletedTime = 0;
+  let framesCompleted = 0;
 
   async function renderFrame() {
     let start = performance.now();
+    
+    if (start-lastBatchTime > 15000) {
+      const workerPromises = [];
+      
+      let currentActiveWorkers = activeWorkers;
+      for (let i = currentActiveWorkers + 1; i <= currentActiveWorkers + workersPerBatch && i <= maxWorkers; i++) {
+        console.log('addWorker', i);
+        workerPromises.push(addWorker(gl, functions, constants, i).then(res => {
+          proxies.push(res.proxy);
+          activeWorkers+=1;
+        }));
+        // let {worker, proxy} = await addWorker(gl, functions, constants, i);
+        // proxies.push(proxy);
+      }
+      
+      await Promise.all(workerPromises);
+      lastBatchTime = performance.now();
+      if (!batchesCompleted && activeWorkers === maxWorkers) {
+        batchesCompleted = true;
+        batchesCompletedTime = performance.now();
+      }
+    }
 
     // Get all the commands from the worker iframes
     await Promise.all(proxies.map(async (proxy) => {
@@ -255,6 +293,14 @@ async function main() {
     let end = performance.now();
     timings.executeCommands.push(end - executeStart);
     timings.frames.push(end - start);
+    if (batchesCompleted) {
+      framesCompleted += 1;
+      status.innerText = `Real FPS: ${Math.round(framesCompleted * 100000 / (end - batchesCompletedTime))/100}
+      Current workers: ${activeWorkers}/${maxWorkers}`;
+    } else {
+      status.innerText = `Instant FPS: ${Math.round(100000/(end-start))/100}
+      Current workers: ${activeWorkers}/${maxWorkers}`;
+    }
     requestAnimationFrame(renderFrame);
   }
 
