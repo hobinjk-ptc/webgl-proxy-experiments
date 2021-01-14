@@ -66,7 +66,7 @@ function makeStub(functionName) {
       }
     }
 
-    let message = {
+    const message = {
       workerId,
       id: invokeId,
       name: functionName,
@@ -130,6 +130,11 @@ function makeStub(functionName) {
 
 window.addEventListener('message', function(event) {
   const message = event.data;
+  if (!message) {
+    console.warn('Event missing data', message);
+    return;
+  }
+
   if (message.name === 'bootstrap') {
     workerId = message.workerId;
     for (const fnName of message.functions) {
