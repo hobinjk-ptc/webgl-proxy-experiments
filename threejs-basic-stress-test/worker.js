@@ -10,7 +10,7 @@ async function main() {
   p.innerText = "";
   p.style.color = "white";
   document.body.appendChild(div);
-  
+
   if (!gl) {
     console.error('Unable to initialize WebGL. Your browser or machine may not support it.');
     return;
@@ -30,7 +30,7 @@ async function main() {
 
   let cubes = [];
 
-  
+
   for (let i = 0; i < 2; i++) {
     const geometry1 = new THREE.BoxGeometry(10 + Math.random(),10 + Math.random(),10 + Math.random());
     const geometry2 = new THREE.TorusKnotGeometry(8, 3, 32, 8);
@@ -44,7 +44,7 @@ async function main() {
     scene.add(cube);
     cubes.push(cube);
   }
-  
+
   p.innerText = `ID: ${workerId}\nPolygon count: ${numFaces}`;
 
   let realRenderer = new THREE.WebGLRenderer();
@@ -57,7 +57,7 @@ async function main() {
 
   let then = 0;
   let done = false;
-  
+
   // Draw the scene repeatedly
   render = function(now) {
     now *= 0.001;  // convert to seconds
@@ -68,7 +68,7 @@ async function main() {
       cube.rotation.x -= (0.2 + workerId / 60) * deltaTime;
       cube.rotation.y -= 0.2 * deltaTime;
     }
-    
+
     renderer.render(scene, camera);
 
     if (done && realGl) {
