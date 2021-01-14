@@ -114,8 +114,30 @@ class WorkerGLProxy {
     return res;
   }
 
+  logCommandBuffer() {
+    let program = [];
+    for (let command of this.commandBuffer) {
+      let messages = command.messages || [command];
+      for (let message of messages) {
+        let args = message.args.map(arg => {
+          if (arg.hasOwnProperty('0')) {
+            arg = `[len(${arg.length})]`;
+            // Array.from(arg);
+          }
+          return JSON.stringify(arg);
+        });
+        program.push(`gl.${message.name}(${args.join(', ')})`);
+      }
+    }
+    console.log('frame');
+    console.log(program.join('\n'));
+  }
+
   executeFrameCommands() {
     this.buffering = false;
+    if (this.commandBuffer.length > 4) {
+      this.logCommandBuffer();
+    }
     for (let message of this.commandBuffer) {
       this.executeCommand(message);
     }
