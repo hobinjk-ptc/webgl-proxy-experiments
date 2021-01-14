@@ -24,14 +24,18 @@ async function main() {
   let cubes = [];
 
   for (let i = 0; i < 2; i++) {
-    // const geometry = new THREE.BoxGeometry();
-    const geometry = new THREE.TorusKnotGeometry(8 + i / 2, 3, 90 + i, 16);
-    // const material = new THREE.MeshBasicMaterial({color: 0x00ff00});
-    const material = new THREE.MeshLambertMaterial({color: 0xffa400});
+    let geometry, material;
+    if (i === 0) {
+      geometry = new THREE.BoxGeometry(4, 4, 4);
+      material = new THREE.MeshBasicMaterial({color: 0x00ff00});
+    } else {
+      geometry = new THREE.TorusKnotGeometry(1 + i / 2, 0.3, 90 + i, 16);
+      material = new THREE.MeshLambertMaterial({color: 0xffa400});
+    }
     let cube = new THREE.Mesh(geometry, material);
-    cube.position.x = -15 + workerId;
-    cube.position.y = -2.5 + i / 2;
-    cube.position.z = -2.5 + i / 2;
+    cube.position.x = -15 + workerId + i * 7;
+    cube.position.y = -2.5 + i * 3;
+    cube.position.z = -2.5 + i * 3;
     scene.add(cube);
     cubes.push(cube);
   }
@@ -46,6 +50,7 @@ async function main() {
 
   let then = 0;
   let done = false;
+  let patience = 0;
 
   // Draw the scene repeatedly
   render = function(now) {
@@ -53,14 +58,24 @@ async function main() {
     const deltaTime = now - then;
     then = now;
 
-    for (let cube of cubes) {
+    // if (done && !realGl) {
+    //   return;
+    // }
+
+    patience += 1;
+
+    for (let i = 0; i < 2; i++) {
+      let cube = cubes[i];
       cube.rotation.x -= (0.2 + workerId / 60) * deltaTime;
       cube.rotation.y -= 0.2 * deltaTime;
+      cube.position.x = -15 + workerId + i * 7;
+      cube.position.y = -2.5 + i * 3;
+      cube.position.z = -2.5 + i * 3;
     }
 
     renderer.render(scene, camera);
 
-    if (done && realGl) {
+    if (done && realGl && patience > 2) {
       for (let proxy of proxies) {
         proxy.__uncloneableObj = null;
         delete proxy.__uncloneableObj;
