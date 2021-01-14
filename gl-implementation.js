@@ -237,7 +237,7 @@ async function main() {
   }
 
   window.proxies = [];
-  
+
   const workerPromises = [];
 
   for (let i = 1; i <= workersPerBatch; i++) {
@@ -249,7 +249,7 @@ async function main() {
     // let {worker, proxy} = await addWorker(gl, functions, constants, i);
     // proxies.push(proxy);
   }
-  
+
   await Promise.all(workerPromises);
 
   window.timings = {
@@ -258,7 +258,7 @@ async function main() {
     executeCommands: [],
     frames: [],
   };
-  
+
   let lastBatchTime = performance.now();
   let batchesCompleted = false;
   let batchesCompletedTime = 0;
@@ -266,10 +266,10 @@ async function main() {
 
   async function renderFrame() {
     let start = performance.now();
-    
+
     if (start-lastBatchTime > 15000) {
       const workerPromises = [];
-      
+
       let currentActiveWorkers = activeWorkers;
       for (let i = currentActiveWorkers + 1; i <= currentActiveWorkers + workersPerBatch && i <= maxWorkers; i++) {
         console.log('addWorker', i);
@@ -280,7 +280,7 @@ async function main() {
         // let {worker, proxy} = await addWorker(gl, functions, constants, i);
         // proxies.push(proxy);
       }
-      
+
       await Promise.all(workerPromises);
       lastBatchTime = performance.now();
       if (!batchesCompleted && activeWorkers === maxWorkers) {
