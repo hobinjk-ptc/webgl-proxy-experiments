@@ -76,6 +76,14 @@ function makeStub(functionName) {
       }
     }
 
+    if (functionName === 'getExtension') {
+      const ext = arguments[0];
+      // Blacklist unproxied extensions
+      if (ext === 'OES_vertex_array_object' || ext === 'EXT_blend_minmax') {
+        return null;
+      }
+    }
+
     const message = {
       workerId,
       id: invokeId,
