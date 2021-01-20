@@ -30,13 +30,6 @@ const cacheGetParameter = {
   36349: 1024,
 };
 
-window.coolKids = {};
-
-document.body.addEventListener('keypress', function() {
-  console.log('resetting cool kids');
-  window.coolKids = {};
-});
-
 /**
  * Makes a stub for a given function which sends a message to the gl
  * implementation in the parent.
@@ -63,7 +56,7 @@ function makeStub(functionName) {
         } else if (args[i] instanceof Array) {
           args[i] = Array.from(args[i]);
         } else {
-          console.log('hmm', args[i]);
+          console.log('Uncloned arg', args[i]);
         }
       }
     }
@@ -112,11 +105,6 @@ function makeStub(functionName) {
       });
 
       const res = realGl[functionName].apply(realGl, unclonedArgs);
-
-      if (!window.coolKids[functionName]) {
-        window.coolKids[functionName] = true;
-        console.log(functionName, arguments, res);
-      }
 
       if (typeof res === 'object') {
         let proxy = new Proxy({

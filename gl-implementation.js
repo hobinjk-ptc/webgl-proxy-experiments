@@ -1,33 +1,3 @@
-function deepFrameEqual(frameA, frameB) {
-  for (let i = 0; i < frameA.length; i++) {
-    let commandA = frameA[i];
-    let commandB = frameB[i];
-    if (commandA.name !== commandB.name) {
-      console.log('diffName', commandA, commandB);
-      return false;
-    }
-    for (let j = 0; j < commandA.args.length; j++) {
-      let argA = commandA.args[j];
-      let argB = commandB.args[j];
-      if (argA.fakeClone) {
-        if (argA.index !== argB.index) {
-          console.log('diffIndex', commandA, commandB);
-          return false;
-        }
-      } else if (argA.hasOwnProperty('0')) {
-        if (JSON.stringify(argA) !== JSON.stringify(argB)) {
-          console.log('diffArray', commandA, commandB);
-          return false;
-        }
-      } else if (argA !== argB) {
-        console.log('diffEquality', commandA, commandB);
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
 /**
  * Mediator between the worker iframe and the gl implementation
  */
@@ -156,44 +126,18 @@ class WorkerGLProxy {
               arrayArg.push(typeof a);
             }
             arg = arrayArg;
-            // arg = `[len(${arg.length})]`;
-            // Array.from(arg);
           }
-          // return JSON.stringify(arg);
-          return arg;
+          return JSON.stringify(arg);
         });
-        // program.push(`gl.${message.name}(${args.join(', ')})`);
-        program.push({
-          name: message.name,
-          args,
-        });
+        program.push(`gl.${message.name}(${args.join(', ')})`);
       }
     }
-
-    let frame = program; // program.join('\n');
-    if (!window.lastFrames) {
-      window.lastFrames = {};
-    }
-    if (window.lastFrames[this.workerId]) {
-      let lastFrame = window.lastFrames[this.workerId];
-      if (!deepFrameEqual(lastFrame, frame)) {
-        // console.log('frame');
-        // console.log(frame);
-      }
-    }
-    window.lastFrames[this.workerId] = frame;
-    // if (!window.lastFrames[frame]) {
-    //   window.lastFrames[frame] = true;
-    //   console.log('frame');
-    //   console.log(frame);
-    // }
+    console.log('frame');
+    console.log(program.join('\n'));
   }
 
   executeFrameCommands() {
     this.buffering = false;
-    if (this.commandBuffer.length > 4) {
-      this.logCommandBuffer();
-    }
     for (let message of this.commandBuffer) {
       this.executeCommand(message);
     }
@@ -247,7 +191,7 @@ async function addWorker(gl, functions, constants, i) {
   await sleep(200);
 
   worker.postMessage({name: 'bootstrap', functions, constants, workerId: i}, '*');
-  // Render 1 frame so it dies
+  // Render a couple of frames so it dies
 
   await sleep(200);
 
