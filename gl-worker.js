@@ -1,5 +1,5 @@
 let gl = {};
-let id = 0;
+let id = Math.random();
 let proxies = [];
 const wantsResponse = false;
 
@@ -30,6 +30,13 @@ const cacheGetParameter = {
   36349: 1024,
 };
 
+window.coolKids = {};
+
+document.body.addEventListener('keypress', function() {
+  console.log('resetting cool kids');
+  window.coolKids = {};
+});
+
 /**
  * Makes a stub for a given function which sends a message to the gl
  * implementation in the parent.
@@ -39,7 +46,7 @@ const cacheGetParameter = {
 function makeStub(functionName) {
   return function() {
     const invokeId = id;
-    id += 1;
+    id += 1 + Math.random();
 
     let args = Array.from(arguments);
     for (let i = 0; i < args.length; i++) {
@@ -48,6 +55,16 @@ function makeStub(functionName) {
           fakeClone: true,
           index: args[i].__uncloneableId,
         };
+      } else if (typeof args[i] === 'object') {
+        if (args[i] instanceof Float32Array) {
+          args[i] = new Float32Array(args[i]);
+        } else if (args[i] instanceof Uint8Array) {
+          args[i] = new Uint8Array(args[i]);
+        } else if (args[i] instanceof Array) {
+          args[i] = Array.from(args[i]);
+        } else {
+          console.log('hmm', args[i]);
+        }
       }
     }
 
@@ -95,6 +112,11 @@ function makeStub(functionName) {
       });
 
       const res = realGl[functionName].apply(realGl, unclonedArgs);
+
+      if (!window.coolKids[functionName]) {
+        window.coolKids[functionName] = true;
+        console.log(functionName, arguments, res);
+      }
 
       if (typeof res === 'object') {
         let proxy = new Proxy({

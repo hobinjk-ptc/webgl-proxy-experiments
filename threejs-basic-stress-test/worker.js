@@ -38,9 +38,9 @@ async function main() {
     const material2 = new THREE.MeshLambertMaterial({color: 0xffa400});
     let cube = new THREE.Mesh(i === 0 ? geometry1 : geometry1, i === 0 ? material2 : material1);
     numFaces += cube.geometry.faces.length;
-    cube.position.x = -15 + workerId / 10;
-    cube.position.y = -2.5 + i / 2 + Math.random()*20-10;
-    cube.position.z = -2.5 + i / 2 + Math.random()*20-10;
+    cube.position.x = -15 + workerId * 5;
+    cube.position.y = -2.5 + 3 * i + Math.random()*20-10;
+    cube.position.z = -2.5 + 3 * i + Math.random()*20-10;
     scene.add(cube);
     cubes.push(cube);
   }
@@ -58,16 +58,27 @@ async function main() {
   let then = 0;
   let done = false;
 
+  let doopMode = 0;
+
   // Draw the scene repeatedly
   render = function(now) {
     now *= 0.001;  // convert to seconds
     const deltaTime = now - then;
     then = now;
 
+    let even = true;
     for (let cube of cubes) {
-      cube.rotation.x -= (0.2 + workerId / 60) * deltaTime;
-      cube.rotation.y -= 0.2 * deltaTime;
+      let sign = even ? 1 : -1;
+      if (doopMode < 500) {
+        cube.rotation.x -= sign * (0.2 + workerId / 60) * deltaTime;
+      } else {
+        cube.rotation.x += sign * (0.2 + workerId / 60) * deltaTime;
+        // todo showcase bug with batching
+      }
+      // cube.rotation.y -= 0.2 * deltaTime;
+      even = !even;
     }
+    doopMode = (doopMode + 1) % 1000
 
     renderer.render(scene, camera);
 
