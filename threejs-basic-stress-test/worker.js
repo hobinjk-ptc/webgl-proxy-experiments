@@ -1,5 +1,6 @@
 const width = 640;
 const height = 480;
+const textureSize = 2048;
 
 let numFaces = 0;
 
@@ -32,13 +33,33 @@ async function main() {
 
 
   for (let i = 0; i < 2; i++) {
-    const geometry1 = new THREE.BoxGeometry(10 + Math.random(),10 + Math.random(),10 + Math.random());
-    const geometry2 = new THREE.TorusKnotGeometry(8, 3, 32, 8);
-    const material1 = new THREE.MeshBasicMaterial({color: 0x00ff00});
-    const material2 = new THREE.MeshLambertMaterial({color: 0xffa400});
-    let cube = new THREE.Mesh(i === 0 ? geometry1 : geometry1, i === 0 ? material2 : material1);
+    let geometry = null;
+    if (true) {
+      geometry = new THREE.BoxGeometry(10 + Math.random(),10 + Math.random(),10 + Math.random());
+    } else {
+      geometry = new THREE.TorusKnotGeometry(8, 3, 32, 8);
+    }
+    let material = null;
+    let materialMode = 'texture';
+    switch (materialMode) {
+      case 'basic':
+        material = new THREE.MeshBasicMaterial({color: 0x00ff00});
+        break;
+      case 'lambert':
+        material = new THREE.MeshLambertMaterial({color: 0xffa400});
+        break;
+      case 'texture': {
+        const loader = new THREE.TextureLoader();
+
+        material = new THREE.MeshBasicMaterial({
+          map: loader.load(`../assets/tex-${textureSize}.jpg`),
+        });
+      }
+        break;
+    }
+    let cube = new THREE.Mesh(geometry, material);
     numFaces += cube.geometry.faces.length;
-    cube.position.x = -30 + workerId * 20;
+    cube.position.x = -40 + workerId * 2;
     cube.position.y = -2.5 + 15 * i;
     cube.position.z = -2.5;
     scene.add(cube);
